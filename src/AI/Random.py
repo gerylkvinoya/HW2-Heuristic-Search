@@ -126,3 +126,73 @@ class AIPlayer(Player):
     def registerWin(self, hasWon):
         #method templaste, not implemented
         pass
+
+    ##
+    #utility
+    #Description: examines GameState object and returns a heuristic guess of how
+    #               "good" that game state is on a scale of 0 - 1
+    #
+    #               a player will win if his opponent’s queen is killed, his opponent's
+    #               anthill is captured, or if the player collects 11 units of food
+    #
+    #Parameters:
+    #   currentState - The state of the current game waiting for the player's move (GameState)
+    #
+    #Return: the "guess" of how good the game state is
+    ##
+    def utility(self, currentState):
+        
+        #get the my inventory and the enemy inventory
+        myInv = getCurrPlayerInventory(currentState)
+        enemyInv = getEnemyInv(currentState)
+
+        #get the values of the queen, anthill, and foodcount
+        myQueen = myInv.getQueen()
+        myAntHill = myInv.getAnthill()
+        myFoodCount = myInv.foodCount
+
+        enemyQueen = enemyInv.getQueen()
+        enemyAntHill = enemyInv.getAnthill()
+        enemyFoodCount = enemyInv.foodCount
+
+        #will modify this toRet value based off of gamestate
+        toRet = 0.5
+
+        #check for the start of game
+        #foodCount should be 0, queen should have full health (10),
+        #   anthill should have full capture health(3)
+        if myFoodCount == 0 and enemyFoodCount == 0:
+            if myAntHill.captureHealth == 3 and enemyAntHill.captureHealth == 3:
+                if myQueen.health == 10 and enemyQueen.health == 10:
+                    #toRet should be 0.5 at this point
+                    return toRet 
+        
+
+        #first, start by experimenting with foodcount
+        myFoodCountScale = myFoodCount/11
+        enemyFoodCountScale = enemyFoodCount/11
+        foodCountDiff = myFoodCountScale - enemyFoodCountScale
+        toRet += foodCountDiff
+
+        #now, calculate for the queen's health
+        myQueenHealthScale = 1 - (myQueen.health/10)
+        enemyQueenHealthScale = 1 - (enemyQueen.health/10)
+        queenHealthDiff = enemyQueenHealthScale - myQueenHealthScale
+        toRet += queenHealthDiff
+
+        #anthill capture health next
+        myCapHealthScale = 1 - (myAntHill.captureHealth/3)
+        enemyCapHealthScale = 1 - (enemyAntHill.captureHealth/3)
+        capHealthDiff = enemyCapHealthScale - myCapHealthScale
+        toRet += capHealthDiff
+
+        return toRet
+
+
+        
+
+
+        
+
+        
+
