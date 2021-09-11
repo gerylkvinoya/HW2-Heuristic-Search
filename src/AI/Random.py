@@ -95,15 +95,33 @@ class AIPlayer(Player):
     #Return: The Move to be made
     ##
     def getMove(self, currentState):
-        moves = listAllLegalMoves(currentState)
-        selectedMove = moves[random.randint(0,len(moves) - 1)];
 
-        #don't do a build move if there are already 3+ ants
-        numAnts = len(currentState.inventories[currentState.whoseTurn].ants)
-        while (selectedMove.moveType == BUILD and numAnts >= 3):
-            selectedMove = moves[random.randint(0,len(moves) - 1)];
+        #create lists of all the moves and gameStates
+        allMoves = listAllLegalMoves(currentState)
+        stateList = []
+        nodeList = []
+
+        #for each move, get the resulting gamestate if we make that move and add it to the list
+        for move in allMoves:
+            newState = getNextState(currentState, move)
+
+            stateList.append(newState)
+
+
+        movesLength = len(allMoves)
+
+        #go through each move and gamestate and make a node, then add to nodeList
+        for i in movesLength:
+            tempNode = Node(allMoves[i], stateList[i], self.utility(currentState))
+    
+            nodeList.append(tempNode)
             
-        return selectedMove
+        #get the move with the best eval through the nodeList
+        highestUtil = self.bestMove(nodeList).move
+
+        #return the move with the highest evaluation
+        return highestUtil
+
     
     ##
     #getAttack
@@ -189,10 +207,32 @@ class AIPlayer(Player):
         return toRet
 
 
-        
+#Create a node class in order to create nodes for the list 
+class Node():
+    #attributes of a node
+    def __init__(self, Move, Gamestate, Utility):
+        self.move = Move
+        self.nextState = Gamestate
+        self.depth = 1
+        self.eval = Utility + self.depth
+        self.parent = None
 
 
-        
+    #bestMove
+    #
+    #Description: goes through each node in a list and finds the one with the 
+    #highest evaluation
+    #
+    #Parameters: nodeList - the list of nodes you want to find the best eval for
+    #
+    #return: the node with the best eval
+    def bestMove(self, nodeList):
+        bestNode = None
+        for node in nodeList:
+            if (node.eval > bestNode.eval):
+                bestNode = node
 
-        
+        return bestNode
+
+
 
