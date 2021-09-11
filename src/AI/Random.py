@@ -148,7 +148,7 @@ class AIPlayer(Player):
     ##
     #utility
     #Description: examines GameState object and returns a heuristic guess of how
-    #               "good" that game state is on a scale of 0 - 1
+    #               "good" that game state is on a scale of 0 to 1
     #
     #               a player will win if his opponent’s queen is killed, his opponent's
     #               anthill is captured, or if the player collects 11 units of food
@@ -158,51 +158,64 @@ class AIPlayer(Player):
     #
     #Return: the "guess" of how good the game state is
     ##
-    def utility(self, currentState):
+    def utility(self, currentState) -> float:
         
+        #2 for the homework, designing a dictionary data structure for a 'node'
+        #node = {'move': getMove(currentState), 'state': utility(currentState), 'depth': 1, }
+
         #get the my inventory and the enemy inventory
         myInv = getCurrPlayerInventory(currentState)
         enemyInv = getEnemyInv(currentState)
 
         #get the values of the queen, anthill, and foodcount
         myQueen = myInv.getQueen()
+        myQueenHealth = myQueen.health
         myAntHill = myInv.getAnthill()
+        myAntHillHealth = myAntHill.captureHealth
         myFoodCount = myInv.foodCount
 
         enemyQueen = enemyInv.getQueen()
+        enemyQueenHealth = enemyQueen.health
         enemyAntHill = enemyInv.getAnthill()
+        enemyAntHillHealth = enemyAntHill.captureHealth
         enemyFoodCount = enemyInv.foodCount
 
         #will modify this toRet value based off of gamestate
         toRet = 0.5
 
+
+
         #check for the start of game
         #foodCount should be 0, queen should have full health (10),
         #   anthill should have full capture health(3)
-        if myFoodCount == 0 and enemyFoodCount == 0:
-            if myAntHill.captureHealth == 3 and enemyAntHill.captureHealth == 3:
-                if myQueen.health == 10 and enemyQueen.health == 10:
-                    #toRet should be 0.5 at this point
-                    return toRet 
+        if (myFoodCount == 0 and enemyFoodCount == 0 and
+            myAntHillHealth == 3 and enemyAntHillHealth == 3 and
+            myQueenHealth == 10 and enemyQueenHealth == 10):
+            #toRet should be 0.5 at this point
+            return toRet
         
 
-        #first, start by experimenting with foodcount
+        #food count
         myFoodCountScale = myFoodCount/11
         enemyFoodCountScale = enemyFoodCount/11
         foodCountDiff = myFoodCountScale - enemyFoodCountScale
         toRet += foodCountDiff
 
-        #now, calculate for the queen's health
-        myQueenHealthScale = 1 - (myQueen.health/10)
-        enemyQueenHealthScale = 1 - (enemyQueen.health/10)
+        #queen health
+        myQueenHealthScale = 1 - (myQueenHealth/10)
+        enemyQueenHealthScale = 1 - (enemyQueenHealth/10)
         queenHealthDiff = enemyQueenHealthScale - myQueenHealthScale
-        toRet += queenHealthDiff
 
-        #anthill capture health next
-        myCapHealthScale = 1 - (myAntHill.captureHealth/3)
-        enemyCapHealthScale = 1 - (enemyAntHill.captureHealth/3)
+        #scaling down the diff because the numbers were unrealistic at first
+        toRet += queenHealthDiff/1.5 
+
+        #anthill capture health
+        myCapHealthScale = 1 - (myAntHillHealth/3)
+        enemyCapHealthScale = 1 - (enemyAntHillHealth/3)
         capHealthDiff = enemyCapHealthScale - myCapHealthScale
-        toRet += capHealthDiff
+
+        #scaling down the diff because the numbers were unrealistic at first
+        toRet += capHealthDiff/1.5
 
         return toRet
 
