@@ -8,6 +8,7 @@ from Ant import UNIT_STATS
 from Move import Move
 from GameState import *
 from AIPlayerUtils import *
+from typing import Dict, List
 
 
 ##
@@ -29,7 +30,7 @@ class AIPlayer(Player):
     #   cpy           - whether the player is a copy (when playing itself)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "Random")
+        super(AIPlayer,self).__init__(inputPlayerId, "NotSoRandom")
     
     ##
     #getPlacement
@@ -96,6 +97,12 @@ class AIPlayer(Player):
     ##
     def getMove(self, currentState):
 
+        #self.move = Move
+        #self.nextState = Gamestate
+        #self.depth = 1
+        #self.eval = Utility + self.depth
+        #self.parent = None
+
         #create lists of all the moves and gameStates
         allMoves = listAllLegalMoves(currentState)
         stateList = []
@@ -107,20 +114,31 @@ class AIPlayer(Player):
 
             stateList.append(newState)
 
-
-        movesLength = len(allMoves)
+        #bestMove = None
 
         #go through each move and gamestate and make a node, then add to nodeList
-        for i in movesLength:
-            tempNode = Node(allMoves[i], stateList[i], self.utility(currentState))
+        for i in range(0, len(allMoves), 1):
+            #tempNode = Node(allMoves[i], stateList[i], self.utility(currentState))
     
-            nodeList.append(tempNode)
-            
+            node = {
+                'move' : allMoves[i],
+                'state' : stateList[i],
+                'depth' : 1,
+                'eval' : self.utility(stateList[i]),
+                'parent': currentState
+            }
+
+            print(node)
+    
+            nodeList.append(node)
+        
         #get the move with the best eval through the nodeList
-        highestUtil = self.bestMove(nodeList).move
+        highestUtil = self.bestMove(nodeList)
+
+        print(highestUtil['eval'])
 
         #return the move with the highest evaluation
-        return highestUtil
+        return highestUtil['move']
 
     
     ##
@@ -164,8 +182,11 @@ class AIPlayer(Player):
         #node = {'move': getMove(currentState), 'state': utility(currentState), 'depth': 1, }
 
         #get the my inventory and the enemy inventory
-        myInv = getCurrPlayerInventory(currentState)
-        enemyInv = getEnemyInv(currentState)
+        myId = currentState.whoseTurn
+        enemyId = 1 - myId
+
+        myInv = currentState.inventories[myId]
+        enemyInv = currentState.inventories[enemyId]
 
         #get the values of the queen, anthill, and foodcount
         myQueen = myInv.getQueen()
@@ -217,19 +238,12 @@ class AIPlayer(Player):
         #scaling down the diff because the numbers were unrealistic at first
         toRet += capHealthDiff/1.5
 
+        if toRet <= 0:
+            toRet = 0.01
+        if toRet >= 1:
+            toRet = 0.99
+            
         return toRet
-
-
-#Create a node class in order to create nodes for the list 
-class Node():
-    #attributes of a node
-    def __init__(self, Move, Gamestate, Utility):
-        self.move = Move
-        self.nextState = Gamestate
-        self.depth = 1
-        self.eval = Utility + self.depth
-        self.parent = None
-
 
     #bestMove
     #
@@ -240,12 +254,41 @@ class Node():
     #
     #return: the node with the best eval
     def bestMove(self, nodeList):
-        bestNode = None
+        bestNode = nodeList[0]
         for node in nodeList:
-            if (node.eval > bestNode.eval):
+            if (node['eval'] > bestNode['eval']):
                 bestNode = node
 
         return bestNode
+
+
+
+#Create a node class in order to create nodes for the list 
+#class Node():
+    #attributes of a node
+    #def __init__(self, Move, Gamestate, Utility):
+    #    self.move = Move
+    #    self.nextState = Gamestate
+    #    self.depth = 1
+    #    self.eval = Utility + self.depth
+    #    self.parent = None
+
+
+    #bestMove
+    #
+    #Description: goes through each node in a list and finds the one with the 
+    #highest evaluation
+    #
+    #Parameters: nodeList - the list of nodes you want to find the best eval for
+    #
+    #return: the node with the best eval
+    #def bestMove(self, nodeList):
+    #    bestNode = None
+    #    for node in nodeList:
+    #        if (node.eval > bestNode.eval):
+    #            bestNode = node
+
+    #    return bestNode
 
 
 
