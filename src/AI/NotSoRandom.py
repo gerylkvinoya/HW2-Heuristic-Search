@@ -110,32 +110,26 @@ class AIPlayer(Player):
 
         #for each move, get the resulting gamestate if we make that move and add it to the list
         for move in allMoves:
-            newState = getNextState(currentState, move)
 
+            if move.moveType == "END_TURN":
+                continue
+
+            newState = getNextState(currentState, move)
             stateList.append(newState)
 
-        #bestMove = None
-
-        #go through each move and gamestate and make a node, then add to nodeList
-        for i in range(0, len(allMoves), 1):
-            #tempNode = Node(allMoves[i], stateList[i], self.utility(currentState))
-    
             node = {
-                'move' : allMoves[i],
-                'state' : stateList[i],
+                'move' : move,
+                'state' : newState,
                 'depth' : 1,
-                'eval' : self.utility(stateList[i]),
+                'eval' : self.utility(newState),
                 'parent': currentState
             }
-
-            print(node)
-    
             nodeList.append(node)
         
         #get the move with the best eval through the nodeList
         highestUtil = self.bestMove(nodeList)
 
-        print(highestUtil['eval'])
+        #print(highestUtil['eval'])
 
         #return the move with the highest evaluation
         return highestUtil['move']
@@ -193,13 +187,20 @@ class AIPlayer(Player):
         myQueenHealth = myQueen.health
         myAntHill = myInv.getAnthill()
         myAntHillHealth = myAntHill.captureHealth
+        myTunnel = getConstrList(currentState, myId, (TUNNEL,))[0]
         myFoodCount = myInv.foodCount
 
         enemyQueen = enemyInv.getQueen()
         enemyQueenHealth = enemyQueen.health
         enemyAntHill = enemyInv.getAnthill()
         enemyAntHillHealth = enemyAntHill.captureHealth
+        enemyTunnel = getConstrList(currentState, enemyId, (TUNNEL,))[0]
         enemyFoodCount = enemyInv.foodCount
+
+        #get the closest food to my tunnel
+        foods = getConstrList(currentState, None, (FOOD,))           
+        foods.sort(key=lambda food: stepsToReach(currentState, myTunnel.coords, food.coords))
+        closestFood = foods[0] 
 
         #will modify this toRet value based off of gamestate
         toRet = 0.5
@@ -214,8 +215,79 @@ class AIPlayer(Player):
             myQueenHealth == 10 and enemyQueenHealth == 10):
             #toRet should be 0.5 at this point
             return toRet
-        
 
+        #IDEA for implementation: award AI points for doing something good, take away points for doing something bad
+
+        awardedPoints = {
+            0 : 0.35,
+            1 : 0.275,
+            2 : 0.2,
+            3 : 0.15,
+            4 : 0.1,
+            5 : 0,
+            6 : -0.075,
+            7 : -0.15,
+            8 : -0.2,
+            9 : -0.225
+        }
+
+        workerList = getAntList(currentState, myId, (WORKER,))
+
+        toAdd = 0
+        # only let anthill be occupied by a worker ant
+        antHillAnt = getAntAt(currentState, myAntHill.coords)
+        if antHillAnt and antHillAnt.type != WORKER:
+            toAdd -= 0.5
+
+        workerList = getAntList(currentState, myId, (WORKER,))
+        droneList = getAntList(currentState, myId, (DRONE,))
+        soldierList = getAntList(currentState, myId, (SOLDIER,))
+        rangedSoldierList = getAntList(currentState, myId, (R_SOLDIER,))
+
+        if len(workerList) > 2:
+            toAdd -= 0.5
+
+
+        #worker points to add start at 0
+        if workerList:
+            for worker in workerList:
+
+                if worker.carrying: 
+                    antHillDist = approxDist(worker.coords, myAntHill.coords)
+                    tunnelDist = approxDist(worker.coords, myTunnel.coords)
+                    closestBldg = min(antHillDist, tunnelDist)
+
+                    #default adds 0
+                    toAdd += awardedPoints.get(closestBldg, 0)
+                
+                else:
+                    foodDist = approxDist(worker.coords, closestFood.coords)
+
+                    #default adds 0
+                    toAdd += awardedPoints.get(foodDist, 0)
+
+        
+        #the drones don't quite work too well right now, need to fix
+        if myFoodCount >= 2 and myDrones != 1 :
+            toAdd -= 0.5
+
+        else:
+            enemyWorkerList = getAntList(currentState, enemyId, (WORKER,))
+
+            #try not to get the move where the enemy has a worker
+            if len(enemyWorkerList) == 1:
+                toAdd -= 0.45
+
+            if len(enemyWorkerList) == 1:
+                for drone in myDrones:
+                    workerDist = approxDist(drone.coords, enemyWorkerList[0].coords)
+                    toAdd += awardedPoints.get(workerDist, -0.35)
+                    
+
+ 
+
+        
+        '''
         #food count
         myFoodCountScale = myFoodCount/11
         enemyFoodCountScale = enemyFoodCount/11
@@ -237,6 +309,9 @@ class AIPlayer(Player):
 
         #scaling down the diff because the numbers were unrealistic at first
         toRet += capHealthDiff/1.5
+        '''
+
+        toRet += toAdd
 
         if toRet <= 0:
             toRet = 0.01
@@ -256,6 +331,7 @@ class AIPlayer(Player):
     def bestMove(self, nodeList):
         bestNode = nodeList[0]
         for node in nodeList:
+            print(node)
             if (node['eval'] > bestNode['eval']):
                 bestNode = node
 
