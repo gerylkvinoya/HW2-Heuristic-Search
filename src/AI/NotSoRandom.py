@@ -224,9 +224,6 @@ class AIPlayer(Player):
 
         #print(workerList)
 
-        #want one worker and one drone
-        #if self.incorrectNumAnts(workerList, droneList, soldierList, rangedSoldierList):
-         #   return 0.0
 
         #will modify this toRet value based off of gamestate
         toRet = 0.5
@@ -313,15 +310,6 @@ class AIPlayer(Player):
                 bestNode = node
 
         return bestNode
-
-    def incorrectNumAnts(self, workerList, droneList, soldierList, rangedSoldierList) -> bool:
-        if len(workerList) != 1:
-            return True
-
-        if soldierList or rangedSoldierList or len(droneList) not in [0, 1]:
-            return True
-        
-        return False
     
 
     #I found this online that had a getNextState working better than the one in AIPlayerUtils
