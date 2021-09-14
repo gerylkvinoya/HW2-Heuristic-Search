@@ -1,3 +1,9 @@
+##
+# NotSoRandom Agent
+# CS 421
+#
+# Authors: Geryl Vinoya and Linda Nguyen
+##
 import random
 import sys
 sys.path.append("..")  #so other modules can be found in parent dir
@@ -110,32 +116,25 @@ class AIPlayer(Player):
 
         #for each move, get the resulting gamestate if we make that move and add it to the list
         for move in allMoves:
-            newState = getNextState(currentState, move)
 
+            if move.moveType == "END_TURN":
+                continue
+
+            newState = self.getNextState(currentState, move)
             stateList.append(newState)
 
-        #bestMove = None
-
-        #go through each move and gamestate and make a node, then add to nodeList
-        for i in range(0, len(allMoves), 1):
-            #tempNode = Node(allMoves[i], stateList[i], self.utility(currentState))
-    
             node = {
-                'move' : allMoves[i],
-                'state' : stateList[i],
+                'move' : move,
+                'state' : newState,
                 'depth' : 1,
-                'eval' : self.utility(stateList[i]),
+                'eval' : self.utility(newState),
                 'parent': currentState
             }
-
-            print(node)
-    
             nodeList.append(node)
         
         #get the move with the best eval through the nodeList
         highestUtil = self.bestMove(nodeList)
 
-        print(highestUtil['eval'])
 
         #return the move with the highest evaluation
         return highestUtil['move']
@@ -178,13 +177,14 @@ class AIPlayer(Player):
     ##
     def utility(self, currentState) -> float:
         
-        #2 for the homework, designing a dictionary data structure for a 'node'
-        #node = {'move': getMove(currentState), 'state': utility(currentState), 'depth': 1, }
+        #will modify this toRet value based off of gamestate
+        toRet = 0.5
 
-        #get the my inventory and the enemy inventory
+        #get my id and enemy id
         myId = currentState.whoseTurn
         enemyId = 1 - myId
 
+        #get the my inventory and the enemy inventory
         myInv = currentState.inventories[myId]
         enemyInv = currentState.inventories[enemyId]
 
@@ -193,18 +193,19 @@ class AIPlayer(Player):
         myQueenHealth = myQueen.health
         myAntHill = myInv.getAnthill()
         myAntHillHealth = myAntHill.captureHealth
+        myTunnel = getConstrList(currentState, myId, (TUNNEL,))[0]
         myFoodCount = myInv.foodCount
-
         enemyQueen = enemyInv.getQueen()
         enemyQueenHealth = enemyQueen.health
         enemyAntHill = enemyInv.getAnthill()
         enemyAntHillHealth = enemyAntHill.captureHealth
+        enemyTunnel = getConstrList(currentState, enemyId, (TUNNEL,))[0]
         enemyFoodCount = enemyInv.foodCount
 
-        #will modify this toRet value based off of gamestate
-        toRet = 0.5
-
-
+        #get the closest food to my tunnel
+        foods = getConstrList(currentState, None, (FOOD,))           
+        foods.sort(key=lambda food: stepsToReach(currentState, myTunnel.coords, food.coords))
+        closestFood = foods[0] 
 
         #check for the start of game
         #foodCount should be 0, queen should have full health (10),
@@ -212,15 +213,26 @@ class AIPlayer(Player):
         if (myFoodCount == 0 and enemyFoodCount == 0 and
             myAntHillHealth == 3 and enemyAntHillHealth == 3 and
             myQueenHealth == 10 and enemyQueenHealth == 10):
-            #toRet should be 0.5 at this point
-            return toRet
-        
+            return 0.5
+
+        #get the lists of all the different types of ants
+        workerList = getAntList(currentState, myId, (WORKER,))
+        droneList = getAntList(currentState, myId, (DRONE,))
+        soldierList = getAntList(currentState, myId, (SOLDIER,))
+        rangedSoldierList = getAntList(currentState, myId, (R_SOLDIER,))
+        enemyWorkerList = getAntList(currentState, enemyId, (WORKER,))
+
+        #print(workerList)
+
+
+        #will modify this toRet value based off of gamestate
+        toRet = 0.5
 
         #food count
         myFoodCountScale = myFoodCount/11
         enemyFoodCountScale = enemyFoodCount/11
         foodCountDiff = myFoodCountScale - enemyFoodCountScale
-        toRet += foodCountDiff
+        toRet += foodCountDiff/3
 
         #queen health
         myQueenHealthScale = 1 - (myQueenHealth/10)
@@ -228,22 +240,60 @@ class AIPlayer(Player):
         queenHealthDiff = enemyQueenHealthScale - myQueenHealthScale
 
         #scaling down the diff because the numbers were unrealistic at first
-        toRet += queenHealthDiff/1.5 
-
+        toRet += queenHealthDiff/3
         #anthill capture health
         myCapHealthScale = 1 - (myAntHillHealth/3)
         enemyCapHealthScale = 1 - (enemyAntHillHealth/3)
         capHealthDiff = enemyCapHealthScale - myCapHealthScale
 
         #scaling down the diff because the numbers were unrealistic at first
-        toRet += capHealthDiff/1.5
+        toRet += capHealthDiff/3
+
+        workerAward = 0.0
+
+        #want to make sure there is only 1 worker and 1 drone
+        if len(droneList) != 1 and myFoodCount > 2:
+            return 0.0
+        if len(workerList) != 1:
+            return 0.0
+        if len(soldierList) != 0:
+            return 0.0
+        if len(rangedSoldierList) != 0:
+            return 0.0
+
+        #get the worker to move between the food and the tunnel
+        if workerList:
+            for worker in workerList:
+                if worker.carrying:
+                    tunnelDist = approxDist(worker.coords, myTunnel.coords)
+                    workerAward += 1 - tunnelDist/9
+                
+                else:
+                    foodDist = approxDist(worker.coords, closestFood.coords)
+                    workerAward += 1 - foodDist/9
+
+        toRet += workerAward/9
+
+        droneAward = 0.0
+
+        #a little buggy when the drone chases after an enemy worker, but works fine vs the other AI as the drone can just sit on the enemy tunnel
+        if droneList:
+            for drone in droneList:
+                droneDist = approxDist(drone.coords, enemyTunnel.coords)
+                droneAward += 1 - droneDist/9
+
+        toRet += droneAward/9
 
         if toRet <= 0:
             toRet = 0.01
         if toRet >= 1:
             toRet = 0.99
-            
+
         return toRet
+
+
+
+        
 
     #bestMove
     #
@@ -260,7 +310,74 @@ class AIPlayer(Player):
                 bestNode = node
 
         return bestNode
+    
 
+    #I found this online that had a getNextState working better than the one in AIPlayerUtils
+    def getNextState(self, currentState, move):
+        """
+        Revised version of getNextState from AIPlayerUtils.
+        Copied from Nux's email to the class.
+        :param currentState: The current GameState.
+        :param move: The move to be performed.
+        :return: The next GameState from the specified move.
+        """
+
+        # variables I will need
+        myGameState = currentState.fastclone()
+        myInv = getCurrPlayerInventory(myGameState)
+        me = myGameState.whoseTurn
+        myAnts = myInv.ants
+        myTunnels = myInv.getTunnels()
+        myAntHill = myInv.getAnthill()
+
+        # If enemy ant is on my anthill or tunnel update capture health
+        ant = getAntAt(myGameState, myAntHill.coords)
+        if ant is not None:
+            if ant.player != me:
+                myAntHill.captureHealth -= 1
+
+        # If an ant is built update list of ants
+        antTypes = [WORKER, DRONE, SOLDIER, R_SOLDIER]
+        if move.moveType == BUILD:
+            if move.buildType in antTypes:
+                ant = Ant(myInv.getAnthill().coords, move.buildType, me)
+                myInv.ants.append(ant)
+                # Update food count depending on ant built
+                if move.buildType == WORKER:
+                    myInv.foodCount -= 1
+                elif move.buildType == DRONE or move.buildType == R_SOLDIER:
+                    myInv.foodCount -= 2
+                elif move.buildType == SOLDIER:
+                    myInv.foodCount -= 3
+            # ants are no longer allowed to build tunnels, so this is an error
+            elif move.buildType == TUNNEL:
+                print("Attempted tunnel build in getNextState()")
+                return currentState
+
+        # If an ant is moved update their coordinates and has moved
+        elif move.moveType == MOVE_ANT:
+            newCoord = move.coordList[-1]
+            startingCoord = move.coordList[0]
+            for ant in myAnts:
+                if ant.coords == startingCoord:
+                    ant.coords = newCoord
+                    # TODO: should this be set true? Design decision
+                    ant.hasMoved = False
+                    attackable = listAttackable(ant.coords, UNIT_STATS[ant.type][RANGE])
+                    for coord in attackable:
+                        foundAnt = getAntAt(myGameState, coord)
+                        if foundAnt is not None:  # If ant is adjacent my ant
+                            if foundAnt.player != me:  # if the ant is not me
+                                foundAnt.health = foundAnt.health - UNIT_STATS[ant.type][
+                                    ATTACK]  # attack
+                                # If an enemy is attacked and loses all its health
+                                # remove it from the other players
+                                # inventory
+                                if foundAnt.health <= 0:
+                                    myGameState.inventories[1 - me].ants.remove(foundAnt)
+                                # If attacked an ant already don't attack any more
+                                break
+        return myGameState
 
 
 #Create a node class in order to create nodes for the list 
