@@ -1,3 +1,9 @@
+##
+# NotSoRandom Agent
+# CS 421
+#
+# Authors: Geryl Vinoya and Linda Nguyen
+##
 import random
 import sys
 sys.path.append("..")  #so other modules can be found in parent dir
@@ -248,18 +254,17 @@ class AIPlayer(Player):
 
         workerAward = 0.0
 
+        #want to make sure there is only 1 worker and 1 drone
         if len(droneList) != 1 and myFoodCount > 2:
             return 0.0
-
         if len(workerList) != 1:
             return 0.0
-
         if len(soldierList) != 0:
             return 0.0
-        
         if len(rangedSoldierList) != 0:
             return 0.0
 
+        #get the worker to move between the food and the tunnel
         if workerList:
             for worker in workerList:
                 if worker.carrying:
@@ -274,6 +279,7 @@ class AIPlayer(Player):
 
         droneAward = 0.0
 
+        #a little buggy when the drone chases after an enemy worker, but works fine vs the other AI as the drone can just sit on the enemy tunnel
         if droneList:
             for drone in droneList:
                 droneDist = approxDist(drone.coords, enemyTunnel.coords)
