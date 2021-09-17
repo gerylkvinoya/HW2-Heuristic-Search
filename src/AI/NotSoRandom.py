@@ -249,6 +249,23 @@ class AIPlayer(Player):
         #scaling down the diff because the numbers were unrealistic at first
         toRet += capHealthDiff/3
 
+        #will use this to estimate the number of "moves"
+        #the number of moves is connected to approxDist
+        #The lower the approxDist, the lower number
+        #of "moves" needed to get to an optimal gamestate
+        utilityEstimate = {
+            0: 1.0,
+            1: 0.88,
+            2: 0.77,
+            3: 0.66,
+            4: 0.55,
+            5: 0.44,
+            6: 0.33,
+            7: 0.22,
+            8: 0.11,
+            9: 0.0
+        }
+
         workerAward = 0.0
 
         #want to make sure there is only 1 worker and 1 drone
@@ -266,11 +283,13 @@ class AIPlayer(Player):
             for worker in workerList:
                 if worker.carrying:
                     tunnelDist = approxDist(worker.coords, myTunnel.coords)
-                    workerAward += 1 - tunnelDist/9
+                    #workerAward += 1 - tunnelDist/9
+                    workerAward += utilityEstimate.get(tunnelDist, 0)
                 
                 else:
                     foodDist = approxDist(worker.coords, closestFood.coords)
-                    workerAward += 1 - foodDist/9
+                    #workerAward += 1 - foodDist/9
+                    workerAward += utilityEstimate.get(foodDist, 0)
 
         toRet += workerAward/9
 
@@ -280,7 +299,8 @@ class AIPlayer(Player):
         if droneList:
             for drone in droneList:
                 droneDist = approxDist(drone.coords, enemyTunnel.coords)
-                droneAward += 1 - droneDist/9
+                #droneAward += 1 - droneDist/9
+                droneAward += utilityEstimate.get(droneDist, 0)
 
         toRet += droneAward/9
 
