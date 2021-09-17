@@ -241,6 +241,7 @@ class AIPlayer(Player):
 
         #scaling down the diff because the numbers were unrealistic at first
         toRet += queenHealthDiff/3
+
         #anthill capture health
         myCapHealthScale = 1 - (myAntHillHealth/3)
         enemyCapHealthScale = 1 - (enemyAntHillHealth/3)
@@ -330,6 +331,47 @@ class AIPlayer(Player):
                 bestNode = node
 
         return bestNode
+
+
+    #expandNode
+    #
+    #Description: generate a list of all valid moves from the gamestate
+    #             in the given node
+    #
+    #             create a list of 
+    #
+    #Parameters: node - an existing node
+    #
+    #return: list of nodes
+    def expandNode(self, node):
+
+        #list of nodes to return
+        nodeList = []
+        
+        #get current state
+        currentState = node.get('state')
+
+        #list all valid moves from the current state of the node
+        allMoves = listAllLegalMoves(currentState)
+
+        for move in allMoves:
+
+            
+            newState = self.getNextState(currentState, move)
+            newDepth = node.get('depth') + 1
+            node = {
+                'move' : move,
+                'state' : newState,
+                'depth' : newDepth,
+                'eval' : self.utility(newState),
+                'parent': currentState
+            }
+
+            nodeList.append(node)
+
+            
+        return nodeList
+        
     
 
     #I found this online that had a getNextState working better than the one in AIPlayerUtils
@@ -399,33 +441,6 @@ class AIPlayer(Player):
                                 break
         return myGameState
 
-
-#Create a node class in order to create nodes for the list 
-#class Node():
-    #attributes of a node
-    #def __init__(self, Move, Gamestate, Utility):
-    #    self.move = Move
-    #    self.nextState = Gamestate
-    #    self.depth = 1
-    #    self.eval = Utility + self.depth
-    #    self.parent = None
-
-
-    #bestMove
-    #
-    #Description: goes through each node in a list and finds the one with the 
-    #highest evaluation
-    #
-    #Parameters: nodeList - the list of nodes you want to find the best eval for
-    #
-    #return: the node with the best eval
-    #def bestMove(self, nodeList):
-    #    bestNode = None
-    #    for node in nodeList:
-    #        if (node.eval > bestNode.eval):
-    #            bestNode = node
-
-    #    return bestNode
 
 
 
