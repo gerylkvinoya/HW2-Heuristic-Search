@@ -114,6 +114,51 @@ class AIPlayer(Player):
         stateList = []
         nodeList = []
 
+        #create frontier and expanded node list
+        frontierNodes = []
+        expandedNodes = []
+
+    
+        #initialize a root node and add to the frontier
+        #no move, no parent
+        rootNode = {
+                'move' : None,
+                'state' : currentState,
+                'depth' : 0,
+                'eval' : self.utility(currentState),
+                'parent': None
+            }
+
+        frontierNodes.append(rootNode)
+
+        #we will only go through this loop 4 times, so our max depth is 4
+        for i in range(0, 3, 1):
+            #sort list to get the node in the frontier with the highest
+            if len(frontierNodes) != 0:
+                frontierNodes.sort(key=lambda node: node.get('eval'), reverse=True)
+                nodeToExpand = frontierNodes[0]
+
+                #remove from frontierNodes and add to expandedNodes
+                expandedNodes.append(nodeToExpand)
+                frontierNodes.remove(nodeToExpand)
+
+                #expand the node and add the list of new nodes to frontier
+                expandedList = self.expandNode(nodeToExpand)
+                for node in expandedList:
+                    frontierNodes.append(node)
+
+        if len(frontierNodes) != 0:
+            #sort again to get the best node
+            frontierNodes.sort(key=lambda node: node.get('eval'), reverse=True)
+            bestNode = frontierNodes[0]
+            while bestNode.get('depth') != 1:
+                parent = bestNode.get('parent')
+                bestNode = parent
+
+        return bestNode.get('move')
+
+
+
         #for each move, get the resulting gamestate if we make that move and add it to the list
         for move in allMoves:
 
@@ -359,15 +404,15 @@ class AIPlayer(Player):
             
             newState = self.getNextState(currentState, move)
             newDepth = node.get('depth') + 1
-            node = {
+            newNode = {
                 'move' : move,
                 'state' : newState,
                 'depth' : newDepth,
                 'eval' : self.utility(newState),
-                'parent': currentState
+                'parent': node
             }
 
-            nodeList.append(node)
+            nodeList.append(newNode)
 
             
         return nodeList
