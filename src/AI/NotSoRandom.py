@@ -147,10 +147,13 @@ class AIPlayer(Player):
                 for node in expandedList:
                     frontierNodes.append(node)
 
+        #from the best node, get the parent node with depth 1 and return it
         if len(frontierNodes) != 0:
             #sort again to get the best node
             frontierNodes.sort(key=lambda node: node.get('eval'), reverse=True)
             bestNode = frontierNodes[0]
+
+            #iterate through parent nodes until we get depth 1
             while bestNode.get('depth') != 1:
                 parent = bestNode.get('parent')
                 bestNode = parent
