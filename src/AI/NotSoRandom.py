@@ -539,11 +539,9 @@ test1.inventories[1].constrs.append(food1)
 
 #create tunnel for player 0
 tunnel0 = Construction((8,6), TUNNEL)
-test1.inventories[0].constrs.append(tunnel0)
 
 #create tunnel for player 1
 tunnel1 = Construction((0,5), TUNNEL)
-test1.inventories[1].constrs.append(tunnel1)
 
 #create a worker
 worker = Ant((7,2), WORKER, 0)
