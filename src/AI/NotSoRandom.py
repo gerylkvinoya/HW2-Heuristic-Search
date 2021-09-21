@@ -6,6 +6,7 @@
 ##
 import random
 import sys
+import time
 sys.path.append("..")  #so other modules can be found in parent dir
 from Player import *
 from Constants import *
@@ -15,7 +16,6 @@ from Move import Move
 from GameState import *
 from AIPlayerUtils import *
 from typing import Dict, List
-
 
 ##
 #AIPlayer
@@ -37,6 +37,7 @@ class AIPlayer(Player):
     ##
     def __init__(self, inputPlayerId):
         super(AIPlayer,self).__init__(inputPlayerId, "NotSoRandom")
+        
     
     ##
     #getPlacement
@@ -103,42 +104,58 @@ class AIPlayer(Player):
     ##
     def getMove(self, currentState):
 
-        #self.move = Move
-        #self.nextState = Gamestate
-        #self.depth = 1
-        #self.eval = Utility + self.depth
-        #self.parent = None
-
         #create lists of all the moves and gameStates
         allMoves = listAllLegalMoves(currentState)
         stateList = []
         nodeList = []
 
-        #for each move, get the resulting gamestate if we make that move and add it to the list
-        for move in allMoves:
+        #create frontier and expanded node list
+        frontierNodes = []
+        expandedNodes = []
 
-            if move.moveType == "END_TURN":
-                continue
-
-            newState = self.getNextState(currentState, move)
-            stateList.append(newState)
-
-            node = {
-                'move' : move,
-                'state' : newState,
-                'depth' : 1,
-                'eval' : self.utility(newState),
-                'parent': currentState
+        #initialize a root node and add to the frontier
+        #no move, no parent
+        rootNode = {
+                'move' : None,
+                'state' : currentState,
+                'depth' : 0,
+                'eval' : self.utility(currentState),
+                'parent': None
             }
-            nodeList.append(node)
-        
-        #get the move with the best eval through the nodeList
-        highestUtil = self.bestMove(nodeList)
 
+        frontierNodes.append(rootNode)
 
-        #return the move with the highest evaluation
-        return highestUtil['move']
+        #we will only go through this loop 3 times, so our max depth is 3
+        for i in range(0, 2, 1):
+            if len(frontierNodes) != 0:
+                #sort list to get the node in the frontier with the highest
+                frontierNodes.sort(key=lambda node: node.get('eval'), reverse=True)
+                nodeToExpand = frontierNodes[0]
 
+                #only keep the top 10 nodes
+                frontierNodes = frontierNodes[:10]
+
+                #remove from frontierNodes and add to expandedNodes
+                expandedNodes.append(nodeToExpand)
+                frontierNodes.remove(nodeToExpand)
+
+                #expand the node and add the list of new nodes to frontier
+                expandedList = self.expandNode(nodeToExpand)
+                for node in expandedList:
+                    frontierNodes.append(node)
+
+        #from the best node, get the parent node with depth 1 and return it
+        if len(frontierNodes) != 0:
+            #sort again to get the best node
+            frontierNodes.sort(key=lambda node: node.get('eval'), reverse=True)
+            bestNode = frontierNodes[0]
+
+            #iterate through parent nodes until we get depth 1
+            while bestNode.get('depth') != 1:
+                parent = bestNode.get('parent')
+                bestNode = parent
+
+        return bestNode.get('move')
     
     ##
     #getAttack
@@ -159,7 +176,7 @@ class AIPlayer(Player):
     # This agent doens't learn
     #
     def registerWin(self, hasWon):
-        #method templaste, not implemented
+        #method template, not implemented
         pass
 
     ##
@@ -176,9 +193,6 @@ class AIPlayer(Player):
     #Return: the "guess" of how good the game state is
     ##
     def utility(self, currentState) -> float:
-        
-        #will modify this toRet value based off of gamestate
-        toRet = 0.5
 
         #get my id and enemy id
         myId = currentState.whoseTurn
@@ -190,15 +204,11 @@ class AIPlayer(Player):
 
         #get the values of the queen, anthill, and foodcount
         myQueen = myInv.getQueen()
-        myQueenHealth = myQueen.health
         myAntHill = myInv.getAnthill()
-        myAntHillHealth = myAntHill.captureHealth
         myTunnel = getConstrList(currentState, myId, (TUNNEL,))[0]
         myFoodCount = myInv.foodCount
         enemyQueen = enemyInv.getQueen()
-        enemyQueenHealth = enemyQueen.health
         enemyAntHill = enemyInv.getAnthill()
-        enemyAntHillHealth = enemyAntHill.captureHealth
         enemyTunnel = getConstrList(currentState, enemyId, (TUNNEL,))[0]
         enemyFoodCount = enemyInv.foodCount
 
@@ -209,10 +219,10 @@ class AIPlayer(Player):
 
         #check for the start of game
         #foodCount should be 0, queen should have full health (10),
-        #   anthill should have full capture health(3)
+        #anthill should have full capture health(3)
         if (myFoodCount == 0 and enemyFoodCount == 0 and
-            myAntHillHealth == 3 and enemyAntHillHealth == 3 and
-            myQueenHealth == 10 and enemyQueenHealth == 10):
+            myAntHill.captureHealth == 3 and enemyAntHill.captureHealth == 3 and
+            myQueen.health == 10 and enemyQueen.health == 10):
             return 0.5
 
         #get the lists of all the different types of ants
@@ -222,33 +232,26 @@ class AIPlayer(Player):
         rangedSoldierList = getAntList(currentState, myId, (R_SOLDIER,))
         enemyWorkerList = getAntList(currentState, enemyId, (WORKER,))
 
-        #print(workerList)
+        #want to make sure there is only 1 worker and 1 drone
+        if len(droneList) != 1 and myFoodCount > 2:
+            return 0.0
+        if len(droneList) > 1:
+            return 0.0
+        if len(workerList) != 1:
+            return 0.0
+        if len(soldierList) != 0:
+            return 0.0
+        if len(rangedSoldierList) != 0:
+            return 0.0
 
 
         #will modify this toRet value based off of gamestate
         toRet = 0.5
 
-        #food count
-        myFoodCountScale = myFoodCount/11
-        enemyFoodCountScale = enemyFoodCount/11
-        foodCountDiff = myFoodCountScale - enemyFoodCountScale
-        toRet += foodCountDiff/3
-
-        #queen health
-        myQueenHealthScale = 1 - (myQueenHealth/10)
-        enemyQueenHealthScale = 1 - (enemyQueenHealth/10)
-        queenHealthDiff = enemyQueenHealthScale - myQueenHealthScale
-
-        #scaling down the diff because the numbers were unrealistic at first
-        toRet += queenHealthDiff/3
-
-        #anthill capture health
-        myCapHealthScale = 1 - (myAntHillHealth/3)
-        enemyCapHealthScale = 1 - (enemyAntHillHealth/3)
-        capHealthDiff = enemyCapHealthScale - myCapHealthScale
-
-        #scaling down the diff because the numbers were unrealistic at first
-        toRet += capHealthDiff/3
+        #IF more than 1 drone spawns on the board, UNCOMMENT these two lines
+        #toRet += self.scoreUtility(myFoodCount, enemyFoodCount, myQueen.health, enemyQueen.health,
+                                   #myAntHill.captureHealth, enemyAntHill.captureHealth)
+        
 
         #will use this to estimate the number of "moves"
         #the number of moves is connected to approxDist
@@ -267,43 +270,12 @@ class AIPlayer(Player):
             9: 0.0
         }
 
-        workerAward = 0.0
-
-        #want to make sure there is only 1 worker and 1 drone
-        if len(droneList) != 1 and myFoodCount > 2:
-            return 0.0
-        if len(workerList) != 1:
-            return 0.0
-        if len(soldierList) != 0:
-            return 0.0
-        if len(rangedSoldierList) != 0:
-            return 0.0
 
         #get the worker to move between the food and the tunnel
-        if workerList:
-            for worker in workerList:
-                if worker.carrying:
-                    tunnelDist = approxDist(worker.coords, myTunnel.coords)
-                    #workerAward += 1 - tunnelDist/9
-                    workerAward += utilityEstimate.get(tunnelDist, 0)
-                
-                else:
-                    foodDist = approxDist(worker.coords, closestFood.coords)
-                    #workerAward += 1 - foodDist/9
-                    workerAward += utilityEstimate.get(foodDist, 0)
+        toRet += utilityEstimate.get(self.workerUtility(workerList, myTunnel, closestFood), 0.0)/9
 
-        toRet += workerAward/9
-
-        droneAward = 0.0
-
-        #a little buggy when the drone chases after an enemy worker, but works fine vs the other AI as the drone can just sit on the enemy tunnel
-        if droneList:
-            for drone in droneList:
-                droneDist = approxDist(drone.coords, enemyTunnel.coords)
-                #droneAward += 1 - droneDist/9
-                droneAward += utilityEstimate.get(droneDist, 0)
-
-        toRet += droneAward/9
+        #get the drone to sit on the enemy tunnel
+        toRet += utilityEstimate.get(self.droneUtility(droneList, enemyWorkerList, enemyTunnel), 0.0)/9
 
         if toRet <= 0:
             toRet = 0.01
@@ -359,20 +331,116 @@ class AIPlayer(Player):
             
             newState = self.getNextState(currentState, move)
             newDepth = node.get('depth') + 1
-            node = {
+            newNode = {
                 'move' : move,
                 'state' : newState,
                 'depth' : newDepth,
                 'eval' : self.utility(newState),
-                'parent': currentState
+                'parent': node
             }
 
-            nodeList.append(node)
+            nodeList.append(newNode)
 
             
         return nodeList
+
+    #scoreUtility
+    #
+    #Description: return an evaluation based off of the current score of the game       
+    #              for food, queen health, anthill health
+    #
+    #Parameters: 
+    #   myFoodCount
+    #   enemyFoodCount
+    #   myQueenHealth
+    #   enemyQueenHealth
+    #   myAntHillHealth
+    #   enemyAntHillHealth
+    #
+    #return: utility number of the evaluation of the game
+    def scoreUtility(self, myFoodCount, enemyFoodCount, myQueenHealth, enemyQueenHealth,
+                     myAntHillHealth, enemyAntHillHealth) -> float:
+        toRet = 0
+
+        #food count
+        myFoodCountScale = myFoodCount/11
+        enemyFoodCountScale = enemyFoodCount/11
+        foodCountDiff = myFoodCountScale - enemyFoodCountScale
+        toRet += foodCountDiff/3
+
+        #queen health
+        myQueenHealthScale = 1 - (myQueenHealth/10)
+        enemyQueenHealthScale = 1 - (enemyQueenHealth/10)
+        queenHealthDiff = enemyQueenHealthScale - myQueenHealthScale
+
+        #scaling down the diff because the numbers were unrealistic at first
+        toRet += queenHealthDiff/3
+
+        #anthill capture health
+        myCapHealthScale = 1 - (myAntHillHealth/3)
+        enemyCapHealthScale = 1 - (enemyAntHillHealth/3)
+        capHealthDiff = enemyCapHealthScale - myCapHealthScale
+
+        #scaling down the diff because the numbers were unrealistic at first
+        toRet += capHealthDiff/3
+
+        return toRet
         
-    
+    #workerUtility
+    #
+    #Description: return an evaluation based off of the move of a worker       
+    #
+    #Parameters:
+    #   workerList - list of workers
+    #   myTunnel - to get coords of tunnel
+    #   closestFood - to get coords of closest food
+    #
+    #return: utility number of the evaluation of the game
+    def workerUtility(self, workerList, myTunnel, closestFood) -> int:
+        if workerList:
+            for worker in workerList:
+                if worker.carrying:
+                    tunnelDist = approxDist(worker.coords, myTunnel.coords)
+                    #workerAward += 1 - tunnelDist/9
+                    #workerAward += utilityEstimate.get(tunnelDist, 0)
+                    return tunnelDist
+                
+                else:
+                    foodDist = approxDist(worker.coords, closestFood.coords)
+                    #workerAward += 1 - foodDist/9
+                    #workerAward += utilityEstimate.get(foodDist, 0)
+                    return foodDist
+
+        #toRet += workerAward/9 #used to be 9
+
+        return 9
+
+    #droneUtility
+    #
+    #Description: return an evaluation based off of the move of a drone       
+    #
+    #Parameters:
+    #   droneList - list of my drones
+    #   enemyWorkerList - list of enemy workers
+    #   enemyTunnel - to get coords of enemy tunnel
+    #
+    #return: utility number of the evaluation of the game
+    def droneUtility(self, droneList, enemyWorkerList, enemyTunnel) -> int:
+        
+        if len(enemyWorkerList) == 0:
+            return 0
+
+        #a little buggy when the drone chases after an enemy worker, but works fine vs the other AI as the drone can just sit on the enemy tunnel
+        if droneList:
+            for drone in droneList:
+                droneDist = approxDist(drone.coords, enemyTunnel.coords)
+                #droneAward += 1 - droneDist/9
+                #droneAward += utilityEstimate.get(droneDist, 0)\
+                return droneDist
+
+        #toRet += droneAward/9 #used to be 9
+
+        return 9
 
     #I found this online that had a getNextState working better than the one in AIPlayerUtils
     def getNextState(self, currentState, move):
@@ -440,6 +508,83 @@ class AIPlayer(Player):
                                 # If attacked an ant already don't attack any more
                                 break
         return myGameState
+
+
+
+##
+############ UNIT TESTS ###########################
+##
+
+#test if utility method returns 0.5 at start of a fresh game
+test1 = GameState.getBasicState()
+testAI = AIPlayer(0)
+
+#set food for both players to 0
+test1.inventories[0].foodCount = 0
+test1.inventories[1].foodCount = 0
+
+#anthill health are at 3
+anthill0 = Construction((0,0), ANTHILL)
+anthill0.health = 3
+anthill1 = Construction((5,5), ANTHILL)
+anthill1.health = 3
+
+#set coords for food
+food0 = Construction((6,2), FOOD)
+food1 = Construction((6,7), FOOD)
+test1.board[3][2].constr = food0
+test1.board[6][7].constr = food1
+test1.inventories[0].constrs.append(food0)
+test1.inventories[1].constrs.append(food1)
+
+#create tunnel for player 0
+tunnel0 = Construction((8,6), TUNNEL)
+
+#create tunnel for player 1
+tunnel1 = Construction((0,5), TUNNEL)
+
+#create a worker
+worker = Ant((7,2), WORKER, 0)
+test1.inventories[0].ants.append(worker)
+workers = getAntList(test1, 0, (WORKER,))
+
+#create enemy worker
+worker = Ant((3,3), WORKER, 1)
+test1.inventories[1].ants.append(worker)
+enemyWorkers = getAntList(test1, 1, (WORKER,))
+
+#create a drone
+drone = Ant((0,3), DRONE, 0)
+test1.inventories[0].ants.append(drone)
+drones = getAntList(test1, 0, (DRONE,))
+
+#set queen health to 10
+queen0 = Ant((0,0), QUEEN, 0)
+queen0.health = 10
+queen1 = Ant((5,5), QUEEN, 1)
+queen1.health = 10
+
+test1.board[0][0].ant = queen0
+test1.board[5][5].ant = queen1
+
+#test if utility is 0.5 at the start of a game
+if(testAI.utility(test1) != 0.5):
+    print("Utility is", testAI.utility(test1), "when should be 0.5 at the start of the game")
+
+#test if score utility is 0 at the start of a game
+if(testAI.scoreUtility(0, 0, 10, 10, 3, 3) != 0):
+    print("Score utility is ", testAI.scoreUtility(test1), "when it should be 0")
+
+#distance from worker to food is 1 so it should return 1
+if(testAI.workerUtility(workers, tunnel0, food0) != 1):
+    print("Worker utility is", testAI.workerUtility(workers, tunnel0, food0), 
+        "when it should be 1")
+
+#distance from drone to enemy tunnel is 2 so should return 2
+if(testAI.droneUtility(drones, enemyWorkers, tunnel1) != 2):
+    print("Drone utility is", testAI.droneUtility(drones, enemyWorkers, tunnel1), 
+        "when it should be 2")
+
 
 
 
