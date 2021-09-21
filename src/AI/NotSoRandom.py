@@ -571,6 +571,10 @@ test1.board[5][5].ant = queen1
 if(testAI.utility(test1) != 0.5):
     print("Utility is", testAI.utility(test1), "when should be 0.5 at the start of the game")
 
+#test if score utility is 0 at the start of a game
+if(testAI.scoreUtility(0, 0, 10, 10, 3, 3) != 0):
+    print("Score utility is ", testAI.scoreUtility(test1), "when it should be 0")
+
 #distance from worker to food is 1 so it should return 1
 if(testAI.workerUtility(workers, tunnel0, food0) != 1):
     print("Worker utility is", testAI.workerUtility(workers, tunnel0, food0), 
@@ -580,6 +584,7 @@ if(testAI.workerUtility(workers, tunnel0, food0) != 1):
 if(testAI.droneUtility(drones, enemyWorkers, tunnel1) != 2):
     print("Drone utility is", testAI.droneUtility(drones, enemyWorkers, tunnel1), 
         "when it should be 2")
+
 
 
 
